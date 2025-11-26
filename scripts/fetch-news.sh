@@ -38,11 +38,26 @@ if ! "$NPM_CMD" --version &> /dev/null; then
     exit 1
 fi
 
-# 設置日誌文件路徑
+# 設置日誌文件路徑（需要在檢查依賴之前設置，以便記錄警告）
 LOG_DIR="$PROJECT_DIR/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/fetch-news-$(date +%Y%m%d).log"
 ERROR_LOG="$LOG_DIR/fetch-news-error-$(date +%Y%m%d).log"
+
+# 檢查是否已安裝依賴
+if [ ! -d "$PROJECT_DIR/node_modules" ]; then
+    echo "警告: node_modules 目錄不存在，正在安裝依賴..." >> "$LOG_FILE" 2>&1
+    "$NPM_CMD" install >> "$LOG_FILE" 2>> "$ERROR_LOG"
+    if [ $? -ne 0 ]; then
+        echo "錯誤: 依賴安裝失敗" >> "$ERROR_LOG"
+        exit 1
+    fi
+fi
+
+# 確保 node_modules/.bin 在 PATH 中（用於執行本地安裝的腳本如 tsx）
+if [ -d "$PROJECT_DIR/node_modules/.bin" ]; then
+    export PATH="$PROJECT_DIR/node_modules/.bin:$PATH"
+fi
 
 # 記錄開始時間
 echo "========================================" >> "$LOG_FILE"
