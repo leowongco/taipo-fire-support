@@ -13,10 +13,28 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 # 切換到項目目錄
 cd "$PROJECT_DIR" || exit 1
 
-# 檢查 npm 是否可用
+# 確定 npm 的完整路徑
+NPM_CMD="npm"
 if ! command -v npm &> /dev/null; then
-    echo "錯誤: 找不到 npm 命令" >&2
-    echo "請確保 Node.js 已正確安裝並在 PATH 中" >&2
+    # 嘗試使用常見的 npm 路徑
+    if [ -f "/opt/homebrew/opt/node@20/bin/npm" ]; then
+        NPM_CMD="/opt/homebrew/opt/node@20/bin/npm"
+        export PATH="/opt/homebrew/opt/node@20/bin:$PATH"
+    elif [ -f "/usr/local/bin/npm" ]; then
+        NPM_CMD="/usr/local/bin/npm"
+        export PATH="/usr/local/bin:$PATH"
+    elif [ -f "$HOME/.nvm/versions/node/$(ls -1 $HOME/.nvm/versions/node 2>/dev/null | tail -1)/bin/npm" ]; then
+        NPM_CMD="$HOME/.nvm/versions/node/$(ls -1 $HOME/.nvm/versions/node 2>/dev/null | tail -1)/bin/npm"
+    else
+        echo "錯誤: 找不到 npm 命令" >&2
+        echo "請確保 Node.js 已正確安裝" >&2
+        exit 1
+    fi
+fi
+
+# 驗證 npm 是否可用
+if ! "$NPM_CMD" --version &> /dev/null; then
+    echo "錯誤: npm 命令無法執行" >&2
     exit 1
 fi
 
@@ -33,7 +51,7 @@ echo "========================================" >> "$LOG_FILE"
 
 # 執行 RTHK 新聞抓取
 echo "[$(date '+%H:%M:%S')] 開始抓取 RTHK 新聞..." >> "$LOG_FILE"
-npm run fetch:rthk-news >> "$LOG_FILE" 2>> "$ERROR_LOG"
+"$NPM_CMD" run fetch:rthk-news >> "$LOG_FILE" 2>> "$ERROR_LOG"
 RTHK_EXIT_CODE=$?
 
 if [ $RTHK_EXIT_CODE -eq 0 ]; then
@@ -47,7 +65,7 @@ sleep 2
 
 # 執行政府新聞抓取
 echo "[$(date '+%H:%M:%S')] 開始抓取政府新聞..." >> "$LOG_FILE"
-npm run fetch:gov-news >> "$LOG_FILE" 2>> "$ERROR_LOG"
+"$NPM_CMD" run fetch:gov-news >> "$LOG_FILE" 2>> "$ERROR_LOG"
 GOV_EXIT_CODE=$?
 
 if [ $GOV_EXIT_CODE -eq 0 ]; then
@@ -61,7 +79,7 @@ sleep 2
 
 # 分析政府新聞中的庇護中心資訊
 echo "[$(date '+%H:%M:%S')] 開始分析政府新聞中的庇護中心資訊..." >> "$LOG_FILE"
-npm run analyze:shelters >> "$LOG_FILE" 2>> "$ERROR_LOG"
+"$NPM_CMD" run analyze:shelters >> "$LOG_FILE" 2>> "$ERROR_LOG"
 ANALYZE_EXIT_CODE=$?
 
 if [ $ANALYZE_EXIT_CODE -eq 0 ]; then
