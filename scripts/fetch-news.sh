@@ -3,12 +3,22 @@
 # 新聞抓取腳本 - 用於 cron job
 # 每 15 分鐘執行一次，更新 RTHK 和政府新聞
 
+# 設置環境變量（cron 環境可能沒有完整的 PATH）
+export PATH="/opt/homebrew/opt/node@20/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
 # 獲取腳本所在目錄的絕對路徑
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # 切換到項目目錄
 cd "$PROJECT_DIR" || exit 1
+
+# 檢查 npm 是否可用
+if ! command -v npm &> /dev/null; then
+    echo "錯誤: 找不到 npm 命令" >&2
+    echo "請確保 Node.js 已正確安裝並在 PATH 中" >&2
+    exit 1
+fi
 
 # 設置日誌文件路徑
 LOG_DIR="$PROJECT_DIR/logs"
