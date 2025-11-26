@@ -59,9 +59,18 @@ if [ -d "$PROJECT_DIR/node_modules/.bin" ]; then
     export PATH="$PROJECT_DIR/node_modules/.bin:$PATH"
 fi
 
+# 檢查 .env 文件是否存在
+if [ ! -f "$PROJECT_DIR/.env" ]; then
+    echo "警告: .env 文件不存在，請確保已設置環境變量" >> "$LOG_FILE"
+    echo "警告: 腳本需要 ADMIN_EMAIL 和 ADMIN_PASSWORD 環境變量" >> "$LOG_FILE"
+fi
+
 # 記錄開始時間
 echo "========================================" >> "$LOG_FILE"
 echo "開始執行新聞抓取: $(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+echo "項目目錄: $PROJECT_DIR" >> "$LOG_FILE"
+echo "NPM 命令: $NPM_CMD" >> "$LOG_FILE"
+echo "Node 版本: $("$NPM_CMD" --version 2>&1 || echo '未知')" >> "$LOG_FILE"
 echo "========================================" >> "$LOG_FILE"
 
 # 執行 RTHK 新聞抓取
@@ -73,6 +82,12 @@ if [ $RTHK_EXIT_CODE -eq 0 ]; then
     echo "[$(date '+%H:%M:%S')] ✅ RTHK 新聞抓取完成" >> "$LOG_FILE"
 else
     echo "[$(date '+%H:%M:%S')] ❌ RTHK 新聞抓取失敗 (退出碼: $RTHK_EXIT_CODE)" >> "$LOG_FILE"
+    echo "[$(date '+%H:%M:%S')] 查看錯誤日誌: $ERROR_LOG" >> "$LOG_FILE"
+    # 將最後幾行錯誤信息也寫入主日誌
+    if [ -f "$ERROR_LOG" ]; then
+        echo "[$(date '+%H:%M:%S')] 最近的錯誤信息:" >> "$LOG_FILE"
+        tail -5 "$ERROR_LOG" >> "$LOG_FILE" 2>/dev/null || true
+    fi
 fi
 
 # 等待 2 秒，避免請求過快
@@ -87,6 +102,12 @@ if [ $GOV_EXIT_CODE -eq 0 ]; then
     echo "[$(date '+%H:%M:%S')] ✅ 政府新聞抓取完成" >> "$LOG_FILE"
 else
     echo "[$(date '+%H:%M:%S')] ❌ 政府新聞抓取失敗 (退出碼: $GOV_EXIT_CODE)" >> "$LOG_FILE"
+    echo "[$(date '+%H:%M:%S')] 查看錯誤日誌: $ERROR_LOG" >> "$LOG_FILE"
+    # 將最後幾行錯誤信息也寫入主日誌
+    if [ -f "$ERROR_LOG" ]; then
+        echo "[$(date '+%H:%M:%S')] 最近的錯誤信息:" >> "$LOG_FILE"
+        tail -5 "$ERROR_LOG" >> "$LOG_FILE" 2>/dev/null || true
+    fi
 fi
 
 # 等待 2 秒，避免請求過快
@@ -101,6 +122,12 @@ if [ $ANALYZE_EXIT_CODE -eq 0 ]; then
     echo "[$(date '+%H:%M:%S')] ✅ 庇護中心分析完成" >> "$LOG_FILE"
 else
     echo "[$(date '+%H:%M:%S')] ❌ 庇護中心分析失敗 (退出碼: $ANALYZE_EXIT_CODE)" >> "$LOG_FILE"
+    echo "[$(date '+%H:%M:%S')] 查看錯誤日誌: $ERROR_LOG" >> "$LOG_FILE"
+    # 將最後幾行錯誤信息也寫入主日誌
+    if [ -f "$ERROR_LOG" ]; then
+        echo "[$(date '+%H:%M:%S')] 最近的錯誤信息:" >> "$LOG_FILE"
+        tail -5 "$ERROR_LOG" >> "$LOG_FILE" 2>/dev/null || true
+    fi
 fi
 
 # 記錄結束時間
