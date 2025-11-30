@@ -8,6 +8,7 @@ export interface Env {
   FIREBASE_FUNCTION_GOV_NEWS_URL: string;
   FIREBASE_FUNCTION_RTHK_NEWS_URL: string;
   FIREBASE_FUNCTION_GOOGLE_NEWS_URL: string;
+  FIREBASE_FUNCTION_UPDATE_EVENT_STATS_URL: string;
   // 可選：用於驗證的 API Key（如果需要）
   API_KEY?: string;
 }
@@ -52,6 +53,11 @@ export default {
       ctx.waitUntil(handleGovNews(env));
       ctx.waitUntil(handleRTHKNews(env));
     }
+
+    // 每 2 小時執行：更新事件統計（與 Firebase Functions 的定時任務同步）
+    if (cron === '0 */2 * * *') {
+      ctx.waitUntil(handleUpdateEventStats(env));
+    }
   },
 
   // HTTP 端點（用於手動觸發和測試）
@@ -76,6 +82,11 @@ export default {
     // 手動觸發 Google News 檢查
     if (path === '/google-news' && request.method === 'GET') {
       return handleGoogleNews(env);
+    }
+
+    // 手動觸發更新事件統計
+    if (path === '/update-event-stats' && request.method === 'GET') {
+      return handleUpdateEventStats(env);
     }
 
     // 健康檢查
@@ -222,6 +233,55 @@ async function handleGoogleNews(env: Env): Promise<Response> {
     );
   } catch (error: any) {
     console.error('❌ Google News 檢查失敗:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+}
+
+/**
+ * 處理事件統計更新
+ */
+async function handleUpdateEventStats(env: Env): Promise<Response> {
+  try {
+    if (!env.FIREBASE_FUNCTION_UPDATE_EVENT_STATS_URL) {
+      throw new Error('FIREBASE_FUNCTION_UPDATE_EVENT_STATS_URL is not set');
+    }
+
+    const response = await callFirebaseFunction(
+      env.FIREBASE_FUNCTION_UPDATE_EVENT_STATS_URL,
+      env.API_KEY
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(`Firebase Function error: ${JSON.stringify(result)}`);
+    }
+
+    console.log(`✅ 事件統計更新完成: ${result.message || 'Success'}`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: '事件統計更新完成',
+        result,
+        timestamp: new Date().toISOString(),
+      }),
+      {
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error: any) {
+    console.error('❌ 事件統計更新失敗:', error);
     return new Response(
       JSON.stringify({
         success: false,

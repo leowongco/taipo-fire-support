@@ -6,6 +6,7 @@
 
 - **定時任務**：
   - 每 10 分鐘同時檢查政府新聞公報和 RTHK 即時新聞
+  - 每 2 小時從維基百科更新事件統計
   - 自動使用 AI 進行新聞分類
 - **手動觸發**：提供 HTTP 端點用於手動觸發和測試
 - **健康檢查**：提供 `/health` 端點用於監控
@@ -45,7 +46,7 @@ npm install
    - 訪問 [Firebase Console](https://console.firebase.google.com/)
    - 選擇你的項目
    - 進入 Functions 頁面
-   - 找到 `manualCheckGovNews` 和 `manualCheckRTHKNews` 函數
+   - 找到 `manualCheckGovNews`、`manualCheckRTHKNews` 和 `manualUpdateEventStats` 函數
    - 複製它們的 URL（格式類似：`https://[region]-[project-id].cloudfunctions.net/manualCheckGovNews`）
 
 ### 3. 設置 Cloudflare Workers
@@ -77,6 +78,9 @@ npm install
    # 設置 RTHK 新聞檢查端點 URL
    echo 'https://asia-east1-taipo-fire-suppoe.cloudfunctions.net/manualCheckRTHKNews' | wrangler secret put FIREBASE_FUNCTION_RTHK_NEWS_URL
 
+   # 設置事件統計更新端點 URL
+   echo 'https://asia-east1-taipo-fire-suppoe.cloudfunctions.net/manualUpdateEventStats' | wrangler secret put FIREBASE_FUNCTION_UPDATE_EVENT_STATS_URL
+
    # （可選）設置 API Key（如果 Firebase Functions 需要驗證）
    wrangler secret put API_KEY
    ```
@@ -101,9 +105,11 @@ npm install
 6. 在 Settings > Variables 中設置環境變量：
    - `FIREBASE_FUNCTION_GOV_NEWS_URL`: 你的政府新聞檢查端點 URL
    - `FIREBASE_FUNCTION_RTHK_NEWS_URL`: 你的 RTHK 新聞檢查端點 URL
+   - `FIREBASE_FUNCTION_UPDATE_EVENT_STATS_URL`: 你的事件統計更新端點 URL
    - `API_KEY`（可選）: 用於驗證的 API Key
 7. 在 Settings > Triggers 中設置 Cron Triggers：
    - `*/10 * * * *` - 每 10 分鐘執行（同時檢查政府新聞和 RTHK 新聞）
+   - `0 */2 * * *` - 每 2 小時執行（更新事件統計）
 8. 保存並部署
 
 ### 4. 驗證設置
@@ -116,6 +122,9 @@ curl https://your-worker.your-subdomain.workers.dev/gov-news
 
 # 測試 RTHK 新聞檢查
 curl https://your-worker.your-subdomain.workers.dev/rthk-news
+
+# 測試事件統計更新
+curl https://your-worker.your-subdomain.workers.dev/update-event-stats
 
 # 健康檢查
 curl https://your-worker.your-subdomain.workers.dev/health
@@ -134,6 +143,7 @@ npm run tail
 ## Cron 時間格式
 
 - `*/10 * * * *` - 每 10 分鐘執行（例如：00:00, 00:10, 00:20, 00:30, 00:40, 00:50...）
+- `0 */2 * * *` - 每 2 小時執行（例如：00:00, 02:00, 04:00, 06:00...）
 
 ## AI 分類
 
@@ -158,6 +168,7 @@ npm run dev
 # 在另一個終端測試
 curl http://localhost:8787/gov-news
 curl http://localhost:8787/rthk-news
+curl http://localhost:8787/update-event-stats
 curl http://localhost:8787/health
 ```
 

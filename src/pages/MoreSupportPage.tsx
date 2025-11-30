@@ -278,7 +278,31 @@ export default function MoreSupportPage() {
 
                         {item.source_ref && (
                           <div className="mt-3 pt-3 border-t border-gray-200">
-                            <p className="text-xs text-gray-500">資料來源：救災資訊小冊子 v1.3 {item.source_ref}</p>
+                            <p className="text-xs text-gray-500">
+                              資料來源：
+                              {(() => {
+                                const sourceRef = item.source_ref.trim()
+                                // 檢測是否為 URL（簡單檢測：以 http:// 或 https:// 開頭）
+                                const isUrl = /^https?:\/\//i.test(sourceRef)
+                                
+                                if (isUrl) {
+                                  return (
+                                    <a
+                                      href={sourceRef}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:text-blue-800 underline"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {sourceRef}
+                                    </a>
+                                  )
+                                } else {
+                                  // 如果不是 URL，顯示為普通文字（保留原有格式）
+                                  return `救災資訊小冊子 v1.3 ${sourceRef}`
+                                }
+                              })()}
+                            </p>
                           </div>
                         )}
                       </div>

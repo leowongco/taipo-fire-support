@@ -579,6 +579,12 @@ export default function AdminDashboard() {
                         </div>
                       )}
                       {item.requirement && <p className="text-sm text-gray-600 mb-1">需要：{item.requirement}</p>}
+                      {item.note && (
+                        <div className="text-sm text-gray-600 mb-1">
+                          <span className="font-medium text-yellow-700">備註：</span>
+                          <p className="whitespace-pre-line text-gray-700 mt-1">{item.note}</p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -696,7 +702,32 @@ export default function AdminDashboard() {
                       )}
                       {item.openingHours && <p className="text-sm text-gray-600 mb-1">開放時間：{item.openingHours}</p>}
                       {item.note && <p className="text-sm text-yellow-600 mb-1">備註：{item.note}</p>}
-                      {item.source_ref && <p className="text-xs text-gray-500 mt-2">資料來源：{item.source_ref}</p>}
+                      {item.source_ref && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          資料來源：
+                          {(() => {
+                            const sourceRef = item.source_ref.trim()
+                            // 檢測是否為 URL（簡單檢測：以 http:// 或 https:// 開頭）
+                            const isUrl = /^https?:\/\//i.test(sourceRef)
+                            
+                            if (isUrl) {
+                              return (
+                                <a
+                                  href={sourceRef}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline"
+                                >
+                                  {sourceRef}
+                                </a>
+                              )
+                            } else {
+                              // 如果不是 URL，顯示為普通文字
+                              return sourceRef
+                            }
+                          })()}
+                        </p>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -920,6 +951,7 @@ function FormModal({
           contact: contact,
           time: (data.time as string)?.trim() || '',
           requirement: (data.requirement as string)?.trim() || '',
+          note: (data.note as string)?.trim() || '',
           type: data.type as 'cash' | 'goods' | 'voucher',
           status: data.status as 'open' | 'closed' | 'limited',
           targetGroup: (data.targetGroup as string)?.trim() || null,
@@ -1460,6 +1492,17 @@ function FormModal({
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">備註（選填）</label>
+                <textarea
+                  name="note"
+                  rows={4}
+                  defaultValue={(editingData as FinancialAid)?.note || ''}
+                  placeholder="例如：特殊條件、注意事項等（支持多行輸入）"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600 resize-y"
+                />
+                <p className="text-xs text-gray-500 mt-1">可輸入多行文字，用於補充說明或特殊注意事項</p>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">類型 *</label>
                 <select
                   name="type"
@@ -1692,9 +1735,10 @@ function FormModal({
                   name="source_ref"
                   type="text"
                   defaultValue={(editingData as ReliefService)?.source_ref || ''}
-                  placeholder="例如：PDF P.35"
+                  placeholder="例如：PDF P.35 或 https://example.com/source"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600"
                 />
+                <p className="text-xs text-gray-500 mt-1">可輸入頁碼（如：PDF P.35）或完整 URL 連結</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">排序順序（選填）</label>

@@ -82,6 +82,7 @@ export interface FinancialAid {
   contact?: string | string[] // 支持多個聯絡方式
   time?: string
   requirement?: string
+  note?: string // 備註（支持多行）
   type: 'cash' | 'goods' | 'voucher'
   status: 'open' | 'closed' | 'limited'
   targetGroup?: 'affected-families' | 'general-residents' // 受影響家庭（特別支援）| 一般受影響居民

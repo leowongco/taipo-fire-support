@@ -19,6 +19,7 @@ import {fetchAndAddGovNews} from "./govNewsFetcher";
 import {fetchAndAddRTHKNews} from "./rthkNewsFetcher";
 import {fetchAndAddGoogleNews} from "./googleNewsFetcher";
 import {classifyNewsWithAI} from "./aiNewsClassifier";
+import {updateEventStatsFromWikipedia} from "./wikipediaStatsFetcher";
 
 // 設置全局選項
 setGlobalOptions({
@@ -571,6 +572,60 @@ export const reclassifyNews = onRequest(
       res.status(500).json({
         success: false,
         error: error.message || "重新分類失敗",
+      });
+    }
+  }
+);
+
+/**
+ * 定時任務：每 2 小時從維基百科更新一次事件統計
+ * 作為新聞抓取的補充，確保統計數據及時更新
+ */
+export const updateEventStats = onSchedule(
+  {
+    schedule: "0 */2 * * *", // 每 2 小時執行一次
+    timeZone: "Asia/Hong_Kong",
+    memory: "512MiB",
+    timeoutSeconds: 300,
+  },
+  async (event) => {
+    logger.info("開始從維基百科更新事件統計...");
+
+    try {
+      const result = await updateEventStatsFromWikipedia();
+      logger.info(`✅ ${result.message}`);
+    } catch (error: any) {
+      logger.error("更新事件統計時發生錯誤:", error);
+      throw error;
+    }
+  }
+);
+
+/**
+ * 手動觸發更新事件統計（用於測試）
+ * 訪問: https://[region]-[project-id].cloudfunctions.net/manualUpdateEventStats
+ */
+export const manualUpdateEventStats = onRequest(
+  {
+    memory: "512MiB",
+    timeoutSeconds: 300,
+    cors: true,
+  },
+  async (req, res) => {
+    logger.info("手動觸發更新事件統計...");
+
+    try {
+      const result = await updateEventStatsFromWikipedia();
+      res.json({
+        success: result.success,
+        message: result.message,
+        stats: result.stats,
+      });
+    } catch (error: any) {
+      logger.error("處理時發生錯誤:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
       });
     }
   }

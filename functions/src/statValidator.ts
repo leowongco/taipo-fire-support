@@ -77,23 +77,43 @@ export async function updateEventStatsWithValidation(
       if (newValue > currentValue) {
         // 檢查是否有待驗證的更新
         if (pendingUpdates.casualties) {
+          const pendingValue = pendingUpdates.casualties.value;
           // 如果新值與待驗證值相同或更大，添加來源
-          if (newValue >= pendingUpdates.casualties.value) {
+          if (newValue >= pendingValue) {
             const sources = [...new Set([...pendingUpdates.casualties.sources, source])];
-            finalPendingUpdates.casualties = { value: newValue, sources };
+            // 使用較大的值
+            const finalValue = Math.max(newValue, pendingValue);
+            finalPendingUpdates.casualties = { value: finalValue, sources };
 
             // 如果達到最小來源數，確認更新
             if (sources.length >= MIN_SOURCES_REQUIRED) {
-              finalStats.casualties = newValue;
+              finalStats.casualties = finalValue;
               verifiedSources.push(...sources.filter((s) => !verifiedSources.includes(s)));
               delete finalPendingUpdates.casualties;
               hasChanges = true;
               logger.info(
-                `✅ 死亡人數已驗證並更新: ${newValue} (來源: ${sources.join(", ")})`
+                `✅ 死亡人數已驗證並更新: ${finalValue} (來源: ${sources.join(", ")})`
               );
             } else {
               logger.info(
-                `⏳ 死亡人數待驗證: ${newValue} (已確認來源: ${sources.length}/${MIN_SOURCES_REQUIRED})`
+                `⏳ 死亡人數待驗證: ${finalValue} (已確認來源: ${sources.length}/${MIN_SOURCES_REQUIRED})`
+              );
+            }
+          } else {
+            // 新值小於待驗證值，但添加來源（可能新來源的數據較舊）
+            const sources = [...new Set([...pendingUpdates.casualties.sources, source])];
+            finalPendingUpdates.casualties = { value: pendingValue, sources };
+            if (sources.length >= MIN_SOURCES_REQUIRED) {
+              finalStats.casualties = pendingValue;
+              verifiedSources.push(...sources.filter((s) => !verifiedSources.includes(s)));
+              delete finalPendingUpdates.casualties;
+              hasChanges = true;
+              logger.info(
+                `✅ 死亡人數已驗證並更新: ${pendingValue} (來源: ${sources.join(", ")})`
+              );
+            } else {
+              logger.info(
+                `⏳ 死亡人數待驗證: ${pendingValue} (已確認來源: ${sources.length}/${MIN_SOURCES_REQUIRED})`
               );
             }
           }
@@ -120,21 +140,39 @@ export async function updateEventStatsWithValidation(
 
       if (newValue > currentValue) {
         if (pendingUpdates.injured) {
-          if (newValue >= pendingUpdates.injured.value) {
+          const pendingValue = pendingUpdates.injured.value;
+          if (newValue >= pendingValue) {
             const sources = [...new Set([...pendingUpdates.injured.sources, source])];
-            finalPendingUpdates.injured = { value: newValue, sources };
+            const finalValue = Math.max(newValue, pendingValue);
+            finalPendingUpdates.injured = { value: finalValue, sources };
 
             if (sources.length >= MIN_SOURCES_REQUIRED) {
-              finalStats.injured = newValue;
+              finalStats.injured = finalValue;
               verifiedSources.push(...sources.filter((s) => !verifiedSources.includes(s)));
               delete finalPendingUpdates.injured;
               hasChanges = true;
               logger.info(
-                `✅ 受傷人數已驗證並更新: ${newValue} (來源: ${sources.join(", ")})`
+                `✅ 受傷人數已驗證並更新: ${finalValue} (來源: ${sources.join(", ")})`
               );
             } else {
               logger.info(
-                `⏳ 受傷人數待驗證: ${newValue} (已確認來源: ${sources.length}/${MIN_SOURCES_REQUIRED})`
+                `⏳ 受傷人數待驗證: ${finalValue} (已確認來源: ${sources.length}/${MIN_SOURCES_REQUIRED})`
+              );
+            }
+          } else {
+            const sources = [...new Set([...pendingUpdates.injured.sources, source])];
+            finalPendingUpdates.injured = { value: pendingValue, sources };
+            if (sources.length >= MIN_SOURCES_REQUIRED) {
+              finalStats.injured = pendingValue;
+              verifiedSources.push(...sources.filter((s) => !verifiedSources.includes(s)));
+              delete finalPendingUpdates.injured;
+              hasChanges = true;
+              logger.info(
+                `✅ 受傷人數已驗證並更新: ${pendingValue} (來源: ${sources.join(", ")})`
+              );
+            } else {
+              logger.info(
+                `⏳ 受傷人數待驗證: ${pendingValue} (已確認來源: ${sources.length}/${MIN_SOURCES_REQUIRED})`
               );
             }
           }
@@ -159,21 +197,39 @@ export async function updateEventStatsWithValidation(
 
       if (newValue > currentValue) {
         if (pendingUpdates.missing) {
-          if (newValue >= pendingUpdates.missing.value) {
+          const pendingValue = pendingUpdates.missing.value;
+          if (newValue >= pendingValue) {
             const sources = [...new Set([...pendingUpdates.missing.sources, source])];
-            finalPendingUpdates.missing = { value: newValue, sources };
+            const finalValue = Math.max(newValue, pendingValue);
+            finalPendingUpdates.missing = { value: finalValue, sources };
 
             if (sources.length >= MIN_SOURCES_REQUIRED) {
-              finalStats.missing = newValue;
+              finalStats.missing = finalValue;
               verifiedSources.push(...sources.filter((s) => !verifiedSources.includes(s)));
               delete finalPendingUpdates.missing;
               hasChanges = true;
               logger.info(
-                `✅ 失蹤人數已驗證並更新: ${newValue} (來源: ${sources.join(", ")})`
+                `✅ 失蹤人數已驗證並更新: ${finalValue} (來源: ${sources.join(", ")})`
               );
             } else {
               logger.info(
-                `⏳ 失蹤人數待驗證: ${newValue} (已確認來源: ${sources.length}/${MIN_SOURCES_REQUIRED})`
+                `⏳ 失蹤人數待驗證: ${finalValue} (已確認來源: ${sources.length}/${MIN_SOURCES_REQUIRED})`
+              );
+            }
+          } else {
+            const sources = [...new Set([...pendingUpdates.missing.sources, source])];
+            finalPendingUpdates.missing = { value: pendingValue, sources };
+            if (sources.length >= MIN_SOURCES_REQUIRED) {
+              finalStats.missing = pendingValue;
+              verifiedSources.push(...sources.filter((s) => !verifiedSources.includes(s)));
+              delete finalPendingUpdates.missing;
+              hasChanges = true;
+              logger.info(
+                `✅ 失蹤人數已驗證並更新: ${pendingValue} (來源: ${sources.join(", ")})`
+              );
+            } else {
+              logger.info(
+                `⏳ 失蹤人數待驗證: ${pendingValue} (已確認來源: ${sources.length}/${MIN_SOURCES_REQUIRED})`
               );
             }
           }

@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react'
 import Layout from '../components/layout/Layout'
 import SkeletonLoader from '../components/ui/SkeletonLoader'
 import { useFirestore } from '../hooks/useFirestore'
+import { useFinancialAidChecklist } from '../hooks/useFinancialAidChecklist'
 import { FinancialAid } from '../types'
-import { DollarSign, Clock, FileText, AlertCircle, Heart } from 'lucide-react'
+import { DollarSign, Clock, FileText, AlertCircle, Heart, CheckCircle2, Circle, Trash2 } from 'lucide-react'
 import { trackEvent } from '../utils/analytics'
 import { renderContact } from '../utils/renderContact'
 import { renderLocation } from '../utils/renderLocation'
@@ -16,6 +17,10 @@ export default function FinancialAidPage() {
   })
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed' | 'limited'>('all')
   const [targetGroupFilter, setTargetGroupFilter] = useState<'affected-families' | 'general-residents'>('general-residents')
+  const [showAppliedOnly, setShowAppliedOnly] = useState(false)
+  
+  // Checklist 功能
+  const { isApplied, toggleApplied, getAppliedAt, clearAll, appliedCount } = useFinancialAidChecklist()
 
   const filteredAid = useMemo(() => {
     return financialAid.filter(aid => {
@@ -40,9 +45,13 @@ export default function FinancialAidPage() {
           return false
         }
       }
+      // 已申請過濾
+      if (showAppliedOnly && !isApplied(aid.id)) {
+        return false
+      }
       return true
     })
-  }, [financialAid, statusFilter, targetGroupFilter])
+  }, [financialAid, statusFilter, targetGroupFilter, showAppliedOnly, isApplied])
 
   // 計算總金額（按目標群組分開計算）
   // 注意：這裡使用所有 financialAid，而不是 filteredAid，因為要顯示所有可申請的總額
@@ -168,6 +177,57 @@ export default function FinancialAidPage() {
         </div>
       )}
 
+      {/* Checklist 統計和操作 */}
+      {!loading && !error && appliedCount > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-blue-600" />
+              <span className="text-sm font-medium text-blue-900">
+                已申請：<span className="font-bold">{appliedCount}</span> 項
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowAppliedOnly(!showAppliedOnly)
+                  trackEvent('filter', {
+                    event_category: 'financial_aid_checklist',
+                    filter_value: showAppliedOnly ? 'all' : 'applied_only',
+                    page: 'financial-aid',
+                  })
+                }}
+                className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+                  showAppliedOnly
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-blue-700 border border-blue-300 hover:bg-blue-50'
+                }`}
+              >
+                {showAppliedOnly ? '顯示全部' : '只顯示已申請'}
+              </button>
+              {appliedCount > 0 && (
+                <button
+                  onClick={() => {
+                    if (confirm('確定要清除所有申請記錄嗎？')) {
+                      clearAll()
+                      trackEvent('action', {
+                        event_category: 'financial_aid_checklist',
+                        action: 'clear_all',
+                        page: 'financial-aid',
+                      })
+                    }
+                  }}
+                  className="px-3 py-1 text-sm font-medium rounded-lg bg-white text-red-700 border border-red-300 hover:bg-red-50 flex items-center gap-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  清除記錄
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 過濾器 */}
       {!loading && !error && financialAid.length > 0 && (
         <div className="mb-4 space-y-4">
@@ -257,11 +317,65 @@ export default function FinancialAidPage() {
             <p>暫無經濟援助資料</p>
           </div>
         ) : (
-          filteredAid.map((aid) => (
-            <div key={aid.id} className="bg-white rounded-lg border border-gray-300 p-4 shadow-sm">
+          filteredAid.map((aid) => {
+            const applied = isApplied(aid.id)
+            const appliedAt = getAppliedAt(aid.id)
+            
+            return (
+            <div key={aid.id} className={`bg-white rounded-lg border p-4 shadow-sm ${
+              applied ? 'border-green-400 bg-green-50/30' : 'border-gray-300'
+            }`}>
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg text-gray-900 mb-1">{aid.title}</h3>
+                  <div className="flex items-start gap-3 mb-1">
+                    <button
+                      onClick={() => {
+                        toggleApplied(aid.id)
+                        trackEvent('action', {
+                          event_category: 'financial_aid_checklist',
+                          action: applied ? 'unmark_applied' : 'mark_applied',
+                          aid_id: aid.id,
+                          page: 'financial-aid',
+                        })
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all flex-shrink-0 ${
+                        applied
+                          ? 'bg-green-50 border-green-500 text-green-700 hover:bg-green-100'
+                          : 'bg-white border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600 hover:bg-green-50'
+                      }`}
+                      title={applied ? '取消標記為已申請' : '標記為已申請'}
+                    >
+                      {applied ? (
+                        <>
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          <span className="text-sm font-medium">已申請</span>
+                        </>
+                      ) : (
+                        <>
+                          <Circle className="w-5 h-5" />
+                          <span className="text-sm font-medium">標記已申請</span>
+                        </>
+                      )}
+                    </button>
+                    <div className="flex-1">
+                      <h3 className={`font-semibold text-lg mb-1 ${
+                        applied ? 'text-green-900' : 'text-gray-900'
+                      }`}>
+                        {aid.title}
+                      </h3>
+                      {applied && appliedAt && (
+                        <p className="text-xs text-green-600 mb-1">
+                          已申請於 {new Date(appliedAt).toLocaleString('zh-HK', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                   <p className="text-sm text-gray-600 mb-2">{aid.provider}</p>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -314,6 +428,15 @@ export default function FinancialAidPage() {
                     <span>需要：{aid.requirement}</span>
                   </div>
                 )}
+                {aid.note && (
+                  <div className="flex items-start gap-2">
+                    <FileText className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-yellow-700 font-medium mb-1">備註：</p>
+                      <p className="whitespace-pre-line text-gray-700">{aid.note}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {aid.sourceRef && (
@@ -322,7 +445,8 @@ export default function FinancialAidPage() {
                 </div>
               )}
             </div>
-          ))
+            )
+          })
         )}
       </div>
     </Layout>
