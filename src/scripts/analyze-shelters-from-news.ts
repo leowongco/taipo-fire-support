@@ -81,22 +81,6 @@ const STATUS_KEYWORDS = {
   full: ['已滿', '額滿', '滿額', '已爆滿', '已滿額', '無法容納', '已無空位']
 }
 
-// 地址關鍵詞
-const ADDRESS_KEYWORDS = [
-  '大埔',
-  '地址',
-  '位於',
-  '設於',
-  '地點',
-  '位置',
-  '在',
-  '邨',
-  '路',
-  '街',
-  '道',
-  '號'
-]
-
 // 檢查文本是否與庇護中心相關
 function isShelterRelated(text: string): boolean {
   const lowerText = text.toLowerCase()

@@ -9,12 +9,16 @@ import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import {parseTelegramPost} from "./telegramParser";
 import {fetchTelegramChannelMessages, scrapeTelegramChannel} from "./telegramFetcher";
-import {fetchAndAddGovNews} from "./govNewsFetcher";
-import {fetchAndAddRTHKNews} from "./rthkNewsFetcher";
 
-// 初始化 Firebase Admin
+// 初始化 Firebase Admin（必須在其他模組導入之前）
 admin.initializeApp();
 const db = admin.firestore();
+
+// 在初始化後才導入依賴 admin 的模組
+import {fetchAndAddGovNews} from "./govNewsFetcher";
+import {fetchAndAddRTHKNews} from "./rthkNewsFetcher";
+import {fetchAndAddGoogleNews} from "./googleNewsFetcher";
+import {classifyNewsWithAI} from "./aiNewsClassifier";
 
 // 設置全局選項
 setGlobalOptions({
@@ -381,6 +385,192 @@ export const manualCheckRTHKNews = onRequest(
       res.status(500).json({
         success: false,
         error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * Google News 定時任務已取消
+ * 如需使用，請使用手動觸發端點 manualCheckGoogleNews
+ */
+// export const checkGoogleNews = onSchedule(
+//   {
+//     schedule: "*/30 * * * *", // 每 30 分鐘執行一次
+//     timeZone: "Asia/Hong_Kong",
+//     memory: "512MiB",
+//     timeoutSeconds: 540,
+//   },
+//   async (event) => {
+//     logger.info("開始檢查 Google News...");
+
+//     try {
+//       const result = await fetchAndAddGoogleNews();
+//       logger.info(`✅ ${result.message}`);
+//     } catch (error: any) {
+//       logger.error("處理 Google News 時發生錯誤:", error);
+//       throw error;
+//     }
+//   }
+// );
+
+/**
+ * 手動觸發檢查 Google News（用於測試）
+ * 訪問: https://[region]-[project-id].cloudfunctions.net/manualCheckGoogleNews
+ */
+export const manualCheckGoogleNews = onRequest(
+  {
+    memory: "512MiB",
+    timeoutSeconds: 540,
+    cors: true,
+  },
+  async (req, res) => {
+    logger.info("手動觸發檢查 Google News...");
+
+    try {
+      const result = await fetchAndAddGoogleNews();
+      res.json({
+        success: result.success,
+        message: result.message,
+        added: result.added,
+        total: result.total,
+      });
+    } catch (error: any) {
+      logger.error("處理時發生錯誤:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * 重新分類新聞（管理員功能）
+ * 使用 AI 重新分析新聞並更新分類
+ */
+export const reclassifyNews = onRequest(
+  {
+    memory: "512MiB",
+    timeoutSeconds: 60,
+    cors: true,
+  },
+  async (req, res) => {
+    // 處理 CORS 預檢請求
+    if (req.method === "OPTIONS") {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      res.set("Access-Control-Max-Age", "3600");
+      res.status(204).send("");
+      return;
+    }
+
+    // 設置 CORS headers
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+    // 驗證請求方法
+    if (req.method !== "POST") {
+      res.status(405).json({
+        success: false,
+        error: "只支持 POST 請求",
+      });
+      return;
+    }
+
+    try {
+      // 驗證身份（檢查 Authorization header）
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        res.status(401).json({
+          success: false,
+          error: "未授權：請先登入",
+        });
+        return;
+      }
+
+      const idToken = authHeader.split("Bearer ")[1];
+      let decodedToken;
+      try {
+        decodedToken = await admin.auth().verifyIdToken(idToken);
+      } catch (error: any) {
+        logger.warn("Token 驗證失敗:", error.message);
+        res.status(401).json({
+          success: false,
+          error: "未授權：無效的登入憑證",
+        });
+        return;
+      }
+
+      const { newsId } = req.body;
+
+      if (!newsId || typeof newsId !== "string") {
+        res.status(400).json({
+          success: false,
+          error: "缺少 newsId 參數",
+        });
+        return;
+      }
+
+      logger.info(`開始重新分類新聞: ${newsId} (用戶: ${decodedToken.uid})`);
+
+      // 獲取新聞文檔
+      const newsRef = db.collection("news").doc(newsId);
+      const newsDoc = await newsRef.get();
+
+      if (!newsDoc.exists) {
+        res.status(404).json({
+          success: false,
+          error: "找不到指定的新聞",
+        });
+        return;
+      }
+
+      const newsData = newsDoc.data();
+      if (!newsData) {
+        res.status(404).json({
+          success: false,
+          error: "新聞數據為空",
+        });
+        return;
+      }
+
+      const title = newsData.title || "";
+      const content = newsData.content || "";
+
+      if (!title && !content) {
+        res.status(400).json({
+          success: false,
+          error: "新聞標題和內容為空，無法分類",
+        });
+        return;
+      }
+
+      // 使用 AI 重新分類
+      logger.info(`使用 AI 重新分類新聞: "${title}"`);
+      const newCategory = await classifyNewsWithAI(title, content);
+
+      // 更新 Firestore
+      await newsRef.update({
+        newsCategory: newCategory,
+      });
+
+      logger.info(`✅ 新聞重新分類成功: ${newsId} -> ${newCategory}`);
+
+      res.json({
+        success: true,
+        message: "重新分類成功",
+        newsId,
+        oldCategory: newsData.newsCategory || null,
+        newCategory,
+      });
+    } catch (error: any) {
+      logger.error("重新分類新聞時發生錯誤:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "重新分類失敗",
       });
     }
   }

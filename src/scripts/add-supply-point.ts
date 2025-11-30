@@ -157,7 +157,7 @@ addSupplyPoint()
     console.log('\n更新完成')
     process.exit(0)
   })
-  .catch((error) => {
+  .catch(() => {
     console.error('\n更新失敗')
     process.exit(1)
   })

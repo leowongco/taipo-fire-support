@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
-import { getFirestore, collection, addDoc, query, where, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore'
+import { getFirestore, collection, addDoc, query, where, getDocs, Timestamp, limit, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import dotenv from 'dotenv'
 import { resolve } from 'path'
 import { load } from 'cheerio'
@@ -354,7 +354,7 @@ async function scrapeTelegramChannel(
       const messages: Array<{ text: string; date: number; messageId: number; link: string }> = []
       
       // 使用 cheerio 解析 Telegram 網頁版
-      $('.tgme_widget_message').each((index, element) => {
+      $('.tgme_widget_message').each((_, element) => {
         if (messages.length >= limit) return false
         
         const $msg = $(element)
@@ -435,9 +435,9 @@ async function fetchAndProcessTelegram() {
     }
 
     // 獲取已處理的消息 ID
-    const processedRef = db.collection('_metadata').doc('telegram_processed')
-    const processedDoc = await processedRef.get()
-    const processedIds = processedDoc.exists
+    const processedRef = doc(db, '_metadata', 'telegram_processed')
+    const processedDoc = await getDoc(processedRef)
+    const processedIds = processedDoc.exists()
       ? (processedDoc.data()?.messageIds || [])
       : []
 
@@ -497,7 +497,7 @@ async function fetchAndProcessTelegram() {
       if (!existingQuery.empty) {
         // 更新現有資源點
         const existingDoc = existingQuery.docs[0]
-        await existingDoc.ref.update({
+        await updateDoc(existingDoc.ref, {
           ...parsed,
           updatedAt: Timestamp.fromMillis(message.date * 1000),
           sourceUrl: message.link,
@@ -520,7 +520,7 @@ async function fetchAndProcessTelegram() {
 
     // 更新已處理的消息 ID（只保留最近 1000 條）
     const trimmedIds = newProcessedIds.slice(-1000)
-    await processedRef.set({
+    await setDoc(processedRef, {
       messageIds: trimmedIds,
       lastUpdate: Timestamp.now(),
     })

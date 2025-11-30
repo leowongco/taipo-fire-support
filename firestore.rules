@@ -1,14 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Announcements collection - public read, authenticated write
+    // Announcements collection - public read, authenticated write (管理員手動添加的公告)
     match /announcements/{announcementId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
     
-    // Resources collection - public read, authenticated write
-    match /resources/{resourceId} {
+    // News collection - public read, authenticated write (自動抓取的新聞)
+    match /news/{newsId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
@@ -19,23 +19,40 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
     
-    // Supplies collection - public read, authenticated write
-    match /supplies/{supplyId} {
+    // Event Stats collection - public read, authenticated write
+    match /eventStats/{statsId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
     
-    // Support Sections collection - public read, authenticated write
-    match /supportSections/{sectionId} {
+    // Reconstruction Info collection - public read, authenticated write
+    match /reconstructionInfo/{infoId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
     
-    // Support Items collection - public read, authenticated write
-    match /supportItems/{itemId} {
+    // History Records collection - public read, authenticated write
+    match /historyRecords/{recordId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Financial Aid collection - public read, authenticated write
+    match /financialAid/{aidId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Services collection - public read, authenticated write
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Relief Services collection - public read, authenticated write
+    match /reliefServices/{serviceId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
   }
 }
-

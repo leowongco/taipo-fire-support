@@ -8,6 +8,7 @@ export default function Footer() {
           <p className="mt-4 text-xs text-gray-500">
             免責聲明：本平台僅提供信息聚合服務，所有信息來源於公開渠道。
             請以官方發布的信息為準。如有緊急情況，請立即撥打 999。
+            本網頁不是關愛隊製作。
           </p>
         </div>
       </div>

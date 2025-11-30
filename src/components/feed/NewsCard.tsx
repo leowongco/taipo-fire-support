@@ -1,15 +1,32 @@
 import { useState } from 'react'
-import { Announcement } from '../../types'
+import { Announcement, News } from '../../types'
 import { formatTime } from '../../utils/formatTime'
 import { ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface NewsCardProps {
-  announcement: Announcement
+  announcement: Announcement | News
 }
 
 export default function NewsCard({ announcement }: NewsCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const isUrgent = announcement.isUrgent
+  
+  // 獲取分類標籤
+  const getCategoryLabel = (category?: string) => {
+    switch (category) {
+      case 'event-update': return '事件更新'
+      case 'financial-support': return '經濟支援'
+      case 'emotional-support': return '情緒支援'
+      case 'accommodation': return '住宿支援'
+      case 'medical-legal': return '醫療/法律'
+      case 'reconstruction': return '重建資訊'
+      case 'statistics': return '統計數據'
+      case 'community-support': return '社區支援'
+      case 'government-announcement': return '政府公告'
+      case 'investigation': return '調查'
+      case 'general-news': return '一般新聞'
+      default: return null
+    }
+  }
 
   // 截取內容預覽（前 100 個字符）
   const previewLength = 100
@@ -19,13 +36,7 @@ export default function NewsCard({ announcement }: NewsCardProps) {
     : announcement.content
 
   return (
-    <div
-      className={`rounded-lg border transition-colors ${
-        isUrgent
-          ? 'bg-red-50 border-red-300'
-          : 'bg-white border-gray-300 hover:border-gray-400'
-      }`}
-    >
+    <div className="rounded-lg border bg-white border-gray-300 hover:border-gray-400 transition-colors">
       {/* 標題區域（可點擊） */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
@@ -34,26 +45,24 @@ export default function NewsCard({ announcement }: NewsCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-2 mb-2">
-              <h3 className={`font-semibold text-lg flex-1 ${isUrgent ? 'text-red-900' : 'text-gray-900'}`}>
+              <h3 className="font-semibold text-lg flex-1 text-gray-900">
                 {announcement.title}
               </h3>
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* 標籤 */}
-                {announcement.tag && (
+                {/* 來源標籤（僅 News 類型有） */}
+                {'tag' in announcement && announcement.tag && (
                   <span className={`px-2 py-1 text-xs font-medium rounded whitespace-nowrap ${
-                    announcement.tag === 'urgent' 
-                      ? 'bg-red-600 text-white'
-                      : announcement.tag === 'gov'
+                    announcement.tag === 'gov'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-600 text-white'
                   }`}>
-                    {announcement.tag === 'urgent' ? '緊急' : announcement.tag === 'gov' ? '政府新聞' : '新聞'}
+                    {announcement.tag === 'gov' ? '政府新聞' : '新聞'}
                   </span>
                 )}
-                {/* 兼容舊數據：如果沒有 tag 但有 isUrgent，顯示緊急標籤 */}
-                {!announcement.tag && isUrgent && (
-                  <span className="px-2 py-1 bg-red-600 text-white text-xs font-medium rounded whitespace-nowrap">
-                    緊急
+                {/* AI 分類標籤（僅 News 類型有） */}
+                {'newsCategory' in announcement && announcement.newsCategory && getCategoryLabel(announcement.newsCategory) && (
+                  <span className="px-2 py-1 bg-purple-600 text-white text-xs font-medium rounded whitespace-nowrap">
+                    {getCategoryLabel(announcement.newsCategory)}
                   </span>
                 )}
               </div>
@@ -97,9 +106,9 @@ export default function NewsCard({ announcement }: NewsCardProps) {
               isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
             }`}>
               <div className={`pt-2 ${isExpanded ? 'border-t border-gray-200' : ''}`}>
-                <p className="text-gray-700 whitespace-pre-wrap mb-3">
+                <div className="text-gray-700 whitespace-pre-wrap mb-3 leading-relaxed">
                   {announcement.content}
-                </p>
+                </div>
               </div>
             </div>
             
@@ -120,9 +129,9 @@ export default function NewsCard({ announcement }: NewsCardProps) {
         ) : (
           <>
             {/* 短內容直接顯示 */}
-            <p className="text-gray-700 mb-3 whitespace-pre-wrap">
+            <div className="text-gray-700 mb-3 whitespace-pre-wrap leading-relaxed">
               {announcement.content}
-            </p>
+            </div>
             {announcement.url && (
               <a
                 href={announcement.url}

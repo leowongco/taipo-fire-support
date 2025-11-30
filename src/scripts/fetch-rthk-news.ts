@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
-import { getFirestore, collection, addDoc, query, where, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore'
+import { getFirestore, collection, addDoc, query, where, getDocs, Timestamp, limit } from 'firebase/firestore'
 import dotenv from 'dotenv'
 import { resolve } from 'path'
 import { load } from 'cheerio'
@@ -107,7 +107,7 @@ function parseRSSDate(dateString: string): Date {
 }
 
 // 獲取 RTHK RSS 新聞
-async function fetchRTHKNews(): Promise<Array<{ title: string; url: string; date: string; description: string }>> {
+async function fetchRTHKNews(): Promise<Array<{ title: string; url: string; date: string; description: string; pubDate?: string }>> {
   try {
     const rssUrl = 'https://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml'
     console.log(`📰 正在獲取 RTHK RSS: ${rssUrl}`)
@@ -125,7 +125,7 @@ async function fetchRTHKNews(): Promise<Array<{ title: string; url: string; date
     const xml = await response.text()
     const $ = load(xml, { xmlMode: true })
     
-    const newsItems: Array<{ title: string; url: string; date: string; description: string }> = []
+    const newsItems: Array<{ title: string; url: string; date: string; description: string; pubDate?: string }> = []
     
     // 解析 RSS items
     $('item').each((_, element) => {
@@ -167,7 +167,8 @@ async function fetchRTHKNews(): Promise<Array<{ title: string; url: string; date
           title,
           url,
           date: dateStr,
-          description: description || ''
+          description: description || '',
+          pubDate: pubDate || undefined // 保留原始 pubDate 用於時間戳解析
         })
       }
     })
@@ -233,12 +234,12 @@ async function fetchNewsContent(url: string): Promise<string> {
   }
 }
 
-// 檢查公告是否已存在
-async function announcementExists(title: string, url: string): Promise<boolean> {
+// 檢查新聞是否已存在
+async function newsExists(title: string, url: string): Promise<boolean> {
   try {
     // 檢查標題或 URL 是否已存在
     const titleQuery = query(
-      collection(db, 'announcements'),
+      collection(db, 'news'),
       where('title', '==', title),
       limit(1)
     )
@@ -249,7 +250,7 @@ async function announcementExists(title: string, url: string): Promise<boolean> 
     }
     
     const urlQuery = query(
-      collection(db, 'announcements'),
+      collection(db, 'news'),
       where('url', '==', url),
       limit(1)
     )
@@ -257,18 +258,55 @@ async function announcementExists(title: string, url: string): Promise<boolean> 
     
     return !urlSnapshot.empty
   } catch (error) {
-    console.error('檢查公告是否存在時發生錯誤:', error)
+    console.error('檢查新聞是否存在時發生錯誤:', error)
     return false
   }
 }
 
-// 添加公告到 Firestore
-async function addAnnouncement(news: { title: string; url: string; date: string; description: string; content?: string }) {
+// 簡單的備用分類（關鍵詞匹配）
+function classifyNewsFallback(title: string, content: string): string {
+  const text = `${title} ${content}`.toLowerCase()
+  
+  if (text.includes('火勢') || text.includes('救援') || text.includes('現場') || text.includes('進展')) {
+    return 'event-update'
+  }
+  if (text.includes('資助') || text.includes('補助') || text.includes('津貼') || text.includes('賠償')) {
+    return 'financial-support'
+  }
+  if (text.includes('心理') || text.includes('輔導') || text.includes('情緒')) {
+    return 'emotional-support'
+  }
+  if (text.includes('庇護') || text.includes('住宿') || text.includes('臨時')) {
+    return 'accommodation'
+  }
+  if (text.includes('醫療') || text.includes('法律')) {
+    return 'medical-legal'
+  }
+  if (text.includes('重建')) {
+    return 'reconstruction'
+  }
+  if (text.includes('死亡') || text.includes('受傷') || text.includes('失蹤') || text.includes('統計')) {
+    return 'statistics'
+  }
+  if (text.includes('義工') || text.includes('物資') || text.includes('社區')) {
+    return 'community-support'
+  }
+  if (text.includes('調查') || text.includes('刑事') || text.includes('貪污')) {
+    return 'investigation'
+  }
+  if (text.includes('政府') || text.includes('官方')) {
+    return 'government-announcement'
+  }
+  return 'general-news'
+}
+
+// 添加新聞到 Firestore（使用 news 集合）
+async function addNews(news: { title: string; url: string; date: string; description: string; content?: string; pubDate?: string }) {
   try {
     // 檢查是否已存在
-    const exists = await announcementExists(news.title, news.url)
+    const exists = await newsExists(news.title, news.url)
     if (exists) {
-      console.log(`⏭️  跳過已存在的公告: ${news.title}`)
+      console.log(`⏭️  跳過已存在的新聞: ${news.title}`)
       return false
     }
     
@@ -290,68 +328,56 @@ async function addAnnouncement(news: { title: string; url: string; date: string;
       content = news.content
     }
     
-    // 判斷是否為緊急
-    // 優先檢查是否包含緊急公告的標準格式文字
-    const urgentAnnouncementText = '電台及電視台當值宣布員注意';
-    const hasUrgentAnnouncementFormat = 
-      news.title.includes(urgentAnnouncementText) || 
-      content.includes(urgentAnnouncementText) ||
-      news.description.includes(urgentAnnouncementText);
-    
-    const isUrgent = 
-      hasUrgentAnnouncementFormat || // 包含緊急公告格式文字，直接標記為緊急
-      (isFireRelated(news.title) && (
-        news.title.includes('緊急') || 
-        news.title.includes('火警') || 
-        news.title.includes('火災') ||
-        news.title.includes('五級火') ||
-        news.title.includes('四級火') ||
-        content.includes('緊急') ||
-        content.includes('撤離') ||
-        content.includes('死亡') ||
-        content.includes('失聯')
-      ))
+    // 使用備用分類（本地腳本無法直接調用 Cloud Functions 的 AI 分類）
+    const newsCategory = classifyNewsFallback(news.title, content || '')
     
     // 設置標籤
-    let tag: 'urgent' | 'gov' | 'news' = 'news' // 默認為新聞（來自 RTHK）
-    if (isUrgent) {
-      tag = 'urgent' // 緊急新聞
-    }
+    const tag: 'gov' | 'news' = 'news' // RTHK 新聞
     
-    // 解析日期
+    // 解析日期和時間
     let timestamp = Timestamp.now()
     try {
-      const dateMatch = news.date.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/)
-      if (dateMatch) {
-        const [, year, month, day] = dateMatch
-        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
-        timestamp = Timestamp.fromDate(date)
-      } else {
-        // 嘗試解析其他日期格式
-        const parsedDate = parseRSSDate(news.date)
+      // 優先使用原始 pubDate（包含完整時間信息）
+      if (news.pubDate) {
+        const parsedDate = new Date(news.pubDate)
         if (!isNaN(parsedDate.getTime())) {
           timestamp = Timestamp.fromDate(parsedDate)
+          console.log(`使用 RSS pubDate 解析時間: ${parsedDate.toLocaleString('zh-HK')}`)
+        }
+      } else {
+        // 如果沒有 pubDate，嘗試從格式化的日期字符串解析
+        const dateMatch = news.date.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/)
+        if (dateMatch) {
+          const [, year, month, day] = dateMatch
+          const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+          timestamp = Timestamp.fromDate(date)
+        } else {
+          // 嘗試解析其他日期格式
+          const parsedDate = parseRSSDate(news.date)
+          if (!isNaN(parsedDate.getTime())) {
+            timestamp = Timestamp.fromDate(parsedDate)
+          }
         }
       }
-    } catch (error) {
-      // 使用當前時間
+    } catch (error: any) {
+      console.warn(`解析日期時發生錯誤: ${error.message}，使用當前時間`)
     }
     
-    const announcement = {
+    const newsItem = {
       title: news.title,
       content: content,
       source: '香港電台 (RTHK)',
       url: news.url,
-      isUrgent,
       tag,
+      newsCategory,
       timestamp
     }
     
-    await addDoc(collection(db, 'announcements'), announcement)
-    console.log(`✅ 已添加公告: ${news.title}`)
+    await addDoc(collection(db, 'news'), newsItem)
+    console.log(`✅ 已添加新聞: ${news.title} (分類: ${newsCategory})`)
     return true
   } catch (error: any) {
-    console.error(`❌ 添加公告時發生錯誤 (${news.title}):`, error.message)
+    console.error(`❌ 添加新聞時發生錯誤 (${news.title}):`, error.message)
     return false
   }
 }
@@ -374,7 +400,7 @@ async function fetchAndAddNews() {
     
     let addedCount = 0
     for (const news of newsList) {
-      const added = await addAnnouncement(news)
+      const added = await addNews(news)
       if (added) {
         addedCount++
       }
