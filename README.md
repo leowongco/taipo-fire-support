@@ -27,7 +27,10 @@
 ### 自動化新聞抓取與分析
 - **RTHK 即時新聞**：每 30 分鐘自動抓取並過濾火災相關新聞
 - **政府新聞公報**：每小時自動抓取政府發布的相關公告
-- **智能分類**：使用 AI（Groq）自動將新聞分類為事件更新、經濟支援、情緒支援、住宿支援、醫療/法律、重建資訊、統計數據、社區支援、政府公告、調查、一般新聞等
+- **智能分類**：使用 **OpenRouter Worker（黃金三角架構）** 自動將新聞分類為事件更新、經濟支援、情緒支援、住宿支援、醫療/法律、重建資訊、統計數據、社區支援、政府公告、調查、一般新聞等
+  - 使用多個免費 AI 模型（Mistral 7B、Meta Llama 3.2、Nous Hermes 3）進行辯論和裁決
+  - 自動備用模型機制，確保服務穩定性
+  - 僅顯示與大埔火災相關的新聞（智能地點篩選）
 - **統計提取**：自動從新聞內容中提取死傷失蹤數據，參與多源驗證機制
 - **重複過濾**：自動過濾重複內容，避免重複顯示
 
@@ -58,6 +61,7 @@
 - **圖標**：Lucide React (輕量級 SVG 圖標)
 - **後端/數據庫**：Firebase (Firestore, Authentication, Hosting)
 - **自動化**：Firebase Cloud Functions + Cloudflare Workers Cron Triggers
+- **AI 分類**：OpenRouter API（使用免費模型：Mistral 7B、Meta Llama 3.2、Nous Hermes 3）
 - **分析追蹤**：Google Analytics 4 (GA-4)
 
 ## 📦 安裝與設置
@@ -120,11 +124,15 @@ npm run build
 firebase deploy --only functions
 ```
 
-### 5. 設置 Google Analytics 4
+### 5. 設置 OpenRouter Worker（新聞分類）
+
+詳見 [functions/OPENROUTER_SETUP.md](./functions/OPENROUTER_SETUP.md) 和 [workers/news-classifier/README.md](./workers/news-classifier/README.md)
+
+### 6. 設置 Google Analytics 4
 
 詳見 [GA4_SETUP.md](./GA4_SETUP.md)
 
-### 6. 初始化數據
+### 7. 初始化數據
 
 ```bash
 # 初始化事件統計
@@ -134,7 +142,7 @@ npm run init:event-stats
 npm run migrate:relief-services
 ```
 
-### 7. 運行開發服務器
+### 8. 運行開發服務器
 
 ```bash
 npm run dev
@@ -169,6 +177,7 @@ npm run fetch:gov-news         # 手動抓取政府新聞
 npm run fetch:rthk-news        # 手動抓取 RTHK 新聞
 npm run fetch:wikipedia-stats  # 從維基百科抓取統計數據
 npm run fetch:wikipedia-timeline # 從維基百科抓取時間軸
+npm run reclassify:news-openrouter # 使用 OpenRouter Worker 重新分類新聞
 ```
 
 ### 自動化新聞抓取（Cloudflare Workers）
@@ -227,15 +236,19 @@ taipo-fire-support/
 │   └── src/
 │       ├── govNewsFetcher.ts        # 政府新聞抓取器
 │       ├── rthkNewsFetcher.ts       # RTHK 新聞抓取器
+│       ├── googleNewsFetcher.ts     # Google News 抓取器
+│       ├── openRouterClassifier.ts  # OpenRouter Worker 分類器
 │       ├── wikipediaStatsFetcher.ts # 維基百科統計抓取器
 │       ├── statExtractor.ts         # 統計數據提取器
 │       ├── statValidator.ts         # 統計數據驗證器（多源驗證）
 │       └── index.ts                 # Functions 入口
-├── workers/                # Cloudflare Workers（定時任務）
-│   ├── src/
-│   │   └── index.ts            # Worker 入口
-│   ├── wrangler.toml           # Wrangler 配置
-│   └── README.md               # Workers 設置說明
+├── workers/                # Cloudflare Workers
+│   ├── news-classifier/    # OpenRouter 新聞分類器 Worker
+│   │   ├── src/
+│   │   │   └── index.ts    # 黃金三角架構分類器
+│   │   ├── wrangler.toml   # Wrangler 配置
+│   │   └── README.md       # 分類器設置說明
+│   └── README.md           # Workers 設置說明
 ├── scripts/                # 自動化腳本（已棄用，改用 Cloudflare Workers）
 ├── firebase.json           # Firebase 配置
 ├── firestore.rules         # Firestore 安全規則

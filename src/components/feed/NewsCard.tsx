@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Announcement, News } from '../../types'
 import { formatTime } from '../../utils/formatTime'
-import { ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { ExternalLink, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
 
 interface NewsCardProps {
   announcement: Announcement | News
@@ -61,9 +61,19 @@ export default function NewsCard({ announcement }: NewsCardProps) {
                 )}
                 {/* AI 分類標籤（僅 News 類型有） */}
                 {'newsCategory' in announcement && announcement.newsCategory && getCategoryLabel(announcement.newsCategory) && (
-                  <span className="px-2 py-1 bg-purple-600 text-white text-xs font-medium rounded whitespace-nowrap">
-                    {getCategoryLabel(announcement.newsCategory)}
-                  </span>
+                  <div className="group relative">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-600 text-white text-xs font-medium rounded whitespace-nowrap">
+                      <Sparkles className="w-3 h-3" />
+                      {getCategoryLabel(announcement.newsCategory)}
+                    </span>
+                    <div className="absolute right-0 top-full mt-1 w-56 p-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-20 shadow-lg">
+                      <div className="flex items-start gap-2">
+                        <Sparkles className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                        <span>此分類由 AI 自動分析生成</span>
+                      </div>
+                      <div className="absolute right-4 top-0 -mt-1 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-800"></div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

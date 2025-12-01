@@ -18,7 +18,7 @@ const db = admin.firestore();
 import {fetchAndAddGovNews} from "./govNewsFetcher";
 import {fetchAndAddRTHKNews} from "./rthkNewsFetcher";
 import {fetchAndAddGoogleNews} from "./googleNewsFetcher";
-import {classifyNewsWithAI} from "./aiNewsClassifier";
+import {classifyNewsWithOpenRouter} from "./openRouterClassifier";
 import {updateEventStatsFromWikipedia} from "./wikipediaStatsFetcher";
 
 // 設置全局選項
@@ -549,9 +549,9 @@ export const reclassifyNews = onRequest(
         return;
       }
 
-      // 使用 AI 重新分類
-      logger.info(`使用 AI 重新分類新聞: "${title}"`);
-      const newCategory = await classifyNewsWithAI(title, content);
+      // 使用 OpenRouter Worker 重新分類
+      logger.info(`使用 OpenRouter Worker 重新分類新聞: "${title}"`);
+      const newCategory = await classifyNewsWithOpenRouter(title, content);
 
       // 更新 Firestore
       await newsRef.update({

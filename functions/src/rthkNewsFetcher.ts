@@ -6,7 +6,7 @@ import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { load } from "cheerio";
 import { extractCasualtyStats, extractEventStartDate } from "./statExtractor";
-import { classifyNewsWithAI } from "./aiNewsClassifier";
+import { classifyNewsWithOpenRouter } from "./openRouterClassifier";
 import { updateEventStatsWithValidation } from "./statValidator";
 
 // 延遲獲取 Firestore 實例（避免在模組加載時初始化）
@@ -14,36 +14,105 @@ function getDb() {
   return admin.firestore();
 }
 
-// 火災相關關鍵詞
+// 火災相關關鍵詞（不包括單獨的"火"字，太寬泛）
 const FIRE_KEYWORDS = [
-  "火",
   "火警",
   "火災",
   "火災事故",
   "火災現場",
-  "大埔",
-  "宏福苑",
-  "宏福",
-  "庇護中心",
-  "臨時庇護",
-  "疏散",
-  "消防",
-  "救援",
-  "緊急",
-  "撤離",
+  "大火",
+  "火勢",
+  "起火",
+  "燃燒",
+  "火場",
   "五級火",
   "四級火",
   "三級火",
   "二級火",
   "一級火",
+  "撲救",
+  "滅火",
+  "消防員",
+  "消防處",
+  "消防局",
+  "消防隊",
+  "傷亡",
+  "罹難",
+  "遇難",
+  "失蹤",
+  "受傷",
+  "死亡",
+  "殉職",
+  "庇護中心",
+  "臨時住宿",
+  "疏散",
+  "撤離",
+  "過渡性房屋",
+  "重建",
+  "善後",
+  "支援",
+  "援助",
+  "物資",
+  "捐款",
+  "應急",
+  "調查",
+  "原因",
+  "責任",
+  "承建商",
+  "維修工程",
+  "棚網",
+  "外牆",
+  "默哀",
+  "弔唁",
+  "哀悼",
+  "悼念",
+  "下半旗",
 ];
 
-// 檢查文本是否與火災相關
+// 地點關鍵詞（必須包含其中一個，確保是大埔火災）
+const LOCATION_KEYWORDS = [
+  "大埔",
+  "宏福苑",
+  "宏仁閣",
+  "宏道閣",
+  "宏福",
+];
+
+// 檢查文本是否與大埔火災相關
+// 必須同時包含火災相關關鍵詞和地點關鍵詞，以避免誤判其他地區的火災
 function isFireRelated(text: string): boolean {
+  if (!text || text.trim().length === 0) {
+    return false;
+  }
+  
   const lowerText = text.toLowerCase();
-  return FIRE_KEYWORDS.some((keyword) =>
+  
+  // 檢查是否包含地點關鍵詞
+  const hasLocation = LOCATION_KEYWORDS.some((keyword) =>
     lowerText.includes(keyword.toLowerCase())
   );
+  
+  if (!hasLocation) {
+    // 如果沒有地點關鍵詞，不認為相關（避免誤判其他地區的火災）
+    return false;
+  }
+  
+  // 如果包含"宏福苑"、"宏仁閣"、"宏道閣"等特定地點，直接認為相關
+  // 因為這些地點本身就與火災事件相關
+  if (
+    lowerText.includes("宏福苑") ||
+    lowerText.includes("宏仁閣") ||
+    lowerText.includes("宏道閣")
+  ) {
+    return true;
+  }
+  
+  // 如果包含"大埔"或"宏福"，必須同時包含火災相關關鍵詞
+  const hasFireKeyword = FIRE_KEYWORDS.some((keyword) =>
+    lowerText.includes(keyword.toLowerCase())
+  );
+  
+  return hasFireKeyword;
 }
 
 // 解析 RSS XML 日期
@@ -340,8 +409,8 @@ async function addNews(news: {
       }
     }
 
-    // 使用 AI 進行新聞分類
-    const newsCategory = await classifyNewsWithAI(news.title, content || "");
+    // 使用 OpenRouter Worker 進行新聞分類
+    const newsCategory = await classifyNewsWithOpenRouter(news.title, content || "");
 
     // 設置標籤（基於來源）
     const tag: 'gov' | 'news' = 'news'; // RTHK 新聞

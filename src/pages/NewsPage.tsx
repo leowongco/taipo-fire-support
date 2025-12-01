@@ -4,7 +4,7 @@ import NewsCard from '../components/feed/NewsCard'
 import SkeletonLoader from '../components/ui/SkeletonLoader'
 import { useFirestore } from '../hooks/useFirestore'
 import { News } from '../types'
-import { AlertTriangle, Newspaper } from 'lucide-react'
+import { AlertTriangle, Newspaper, Sparkles, Info } from 'lucide-react'
 import { trackEvent } from '../utils/analytics'
 
 type NewsCategoryFilter = 'all' | 'event-update' | 'financial-support' | 'emotional-support' | 'accommodation' | 'medical-legal' | 'reconstruction' | 'statistics' | 'community-support' | 'government-announcement' | 'investigation' | 'general-news'
@@ -102,7 +102,20 @@ export default function NewsPage() {
           <Newspaper className="w-6 h-6 text-red-600" />
           新聞動態
         </h1>
-        <p className="text-gray-600 text-sm">自動抓取的政府新聞公報和 RTHK 即時新聞</p>
+        <p className="text-gray-600 text-sm mb-3">自動抓取的政府新聞公報和 RTHK 即時新聞</p>
+        
+        {/* AI 篩選提示 */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-3">
+          <Sparkles className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm font-medium text-blue-900">AI 智能分類與篩選</span>
+            </div>
+            <p className="text-xs text-blue-700 leading-relaxed">
+              本頁面的新聞內容經過 AI 自動分析，僅顯示與大埔火災相關的新聞，並自動分類為不同類別。分類結果由 AI 模型分析生成，僅供參考。
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Recent Event Update Banner */}
@@ -177,7 +190,19 @@ export default function NewsPage() {
           
           {/* News Category Filters */}
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">內容分類：</p>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-sm font-medium text-gray-700">內容分類：</p>
+              <div className="group relative">
+                <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                <div className="absolute left-0 bottom-full mb-2 w-64 p-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 shadow-lg">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                    <span>分類由 AI 自動分析生成，使用多模型協作架構確保準確性</span>
+                  </div>
+                  <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                </div>
+              </div>
+            </div>
             <div className="flex gap-2 flex-wrap">
               {(['all', 'event-update', 'financial-support', 'emotional-support', 'accommodation', 'medical-legal', 'reconstruction', 'statistics', 'community-support', 'government-announcement', 'investigation', 'general-news'] as NewsCategoryFilter[]).map((category) => (
                 <button

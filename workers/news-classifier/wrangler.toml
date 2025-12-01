@@ -1,0 +1,11 @@
+name = "news-classifier"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# 環境變量（在 Cloudflare Dashboard 中設置或使用 wrangler secret）
+# OPENROUTER_API_KEY: OpenRouter API Key (使用 wrangler secret put OPENROUTER_API_KEY 設置)
+
+# 日誌配置
+[observability]
+enabled = true
+

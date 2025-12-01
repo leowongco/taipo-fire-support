@@ -26,7 +26,8 @@
     "fix:failed-relief-services": "tsx src/scripts/fix-failed-relief-services.ts",
     "add:gov-support-nov28": "tsx src/scripts/add-gov-support-nov28.ts",
     "fix:news-timestamps": "tsx src/scripts/fix-news-timestamps.ts",
-    "delete:google-news": "tsx src/scripts/delete-google-news.ts"
+    "delete:google-news": "tsx src/scripts/delete-google-news.ts",
+    "reclassify:news-openrouter": "tsx src/scripts/reclassify-news-with-openrouter.ts"
   },
   "keywords": [],
   "author": "",
